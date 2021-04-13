@@ -7,6 +7,7 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "../lib/kernel/list.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -30,6 +31,9 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
 
+//Create thread waiting list
+struct list waitingList;
+
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
 void
@@ -37,6 +41,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&waitingList);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -84,6 +89,12 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+//Create function to compare list elements
+bool less_func(struct list_elem *a, list_elem *b, void *aux){
+	return list_entry(a, struct thread, waitingElem)->priority > list_entry(b, struct thread, waitingElem)->priority;
+}
+
+
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void
@@ -91,9 +102,21 @@ timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
 
+  //Get the current thread
+  struct thread *currentThread = thread_current();
+
+  //Set the current thread wakeup time
+  currentThread->wakeup_time = start + ticks;
+
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  //Safely insert the thread into the waiting list
+  intr_disable();
+  list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
+  intr_enable();
+
+  //Block the thread
+  thread_block();
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
