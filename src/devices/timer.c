@@ -18,6 +18,8 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
+Pthread_mutex_lock_t lock = PTHREAD_MUTEX_INITIALIZER;
+
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -111,9 +113,9 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
 
   //Safely insert the thread into the waiting list
-  intr_disable();
+  Pthread_mutex_lock(&lock);
   list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
-  intr_enable();
+  Pthread_mutex_unlock(&lock);
 
   //Block the thread
   thread_block();
