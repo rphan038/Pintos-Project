@@ -8,6 +8,8 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "../lib/kernel/list.h"
+#include "../threads/synch.h"
+#include "../lib/stdio.h"
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -18,7 +20,7 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
-Pthread_mutex_lock_t lock = PTHREAD_MUTEX_INITIALIZER;
+struct semaphore lock;
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -32,6 +34,7 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
+bool less_func(struct list_elem *a, struct list_elem *b, void *aux);
 
 //Create thread waiting list
 struct list waitingList;
@@ -44,6 +47,7 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&waitingList);
+  sema_init(&lock, 1);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -92,9 +96,11 @@ timer_elapsed (int64_t then)
 }
 
 //Create function to compare list elements
-bool less_func(struct list_elem *a, list_elem *b, void *aux){
-	return list_entry(a, struct thread, waitingElem)->priority > list_entry(b, struct thread, waitingElem)->priority;
+bool less_func(struct list_elem *a, struct list_elem *b, void *aux){
+	return list_entry(a, struct thread, waitingElem)->wakeup_time < list_entry(b, struct thread, waitingElem)->wakeup_time;
 }
+
+list_less_func *f = &less_func;
 
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
@@ -113,9 +119,9 @@ timer_sleep (int64_t ticks)
   ASSERT (intr_get_level () == INTR_ON);
 
   //Safely insert the thread into the waiting list
-  Pthread_mutex_lock(&lock);
-  list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
-  Pthread_mutex_unlock(&lock);
+  sema_down(&lock);
+  list_insert_ordered(&waitingList, &currentThread->waitingElem, f, NULL);
+  sema_up(&lock);
 
   //Block the thread
   thread_block();
@@ -197,6 +203,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+  printf("SIZE : %d\n", list_size(&waitingList));
+  
+  struct list_elem *head = list_begin(&waitingList);
+  struct thread *t = list_entry(head, struct thread, waitingElem);
+  printf("WAKEUPTIME : %d\n", t->wakeup_time);
+  if(ticks >= t->wakeup_time) {
+    intr_disable();
+    thread_unblock(t);
+    intr_enable();
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
