@@ -125,10 +125,10 @@ timer_sleep (int64_t ticks)
   struct list_elem *e = list_begin(&waitingList);
   list_insert_ordered(e, &currentThread->waitingElem, less_func, NULL);
   printf("SIZE AFTER : %d\n", list_size(&waitingList));
-  sema_up(&lock);
-
   //Block the thread
-  thread_block();
+  thread_block(); //WE NEED TO CALL THIS FUNCTION WITH INTERRUPTS
+   
+  sema_up(&lock);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
