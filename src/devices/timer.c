@@ -212,18 +212,18 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
   //printf("SIZE : %d\n", list_size(&waitingList));
   //intr_disable();
-  enum intr_level old_level = intr_disable();
   if(list_size(&waitingList) > 0) {
     struct list_elem *head = list_min(&waitingList, less_func, NULL);
     struct thread *t = list_entry(head, struct thread, waitingElem);
     if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
       // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
       // printf("TICKS : %lld\n", ticks);
+      enum intr_level old_level = intr_disable();
       thread_unblock(t);
+      intr_set_level(old_level);
       list_pop_front(&waitingList);
     }
   }
-  intr_set_level(old_level);
   //intr_enable();
 }
 
