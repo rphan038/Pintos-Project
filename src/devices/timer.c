@@ -48,6 +48,7 @@ timer_init (void)
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&waitingList);
   sema_init(&lock, 1);
+  printf("TESTING\n");
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -120,7 +121,10 @@ timer_sleep (int64_t ticks)
 
   //Safely insert the thread into the waiting list
   sema_down(&lock);
-  list_insert_ordered(&waitingList, &currentThread->waitingElem, f, NULL);
+  printf("SIZE BEFORE : %d\n", list_size(&waitingList));
+  struct list_elem *e = list_begin(&waitingList);
+  list_insert_ordered(e, &currentThread->waitingElem, less_func, NULL);
+  printf("SIZE AFTER : %d\n", list_size(&waitingList));
   sema_up(&lock);
 
   //Block the thread
@@ -204,15 +208,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
   printf("SIZE : %d\n", list_size(&waitingList));
-  
-  struct list_elem *head = list_begin(&waitingList);
-  struct thread *t = list_entry(head, struct thread, waitingElem);
-  printf("WAKEUPTIME : %d\n", t->wakeup_time);
-  if(ticks >= t->wakeup_time) {
-    intr_disable();
-    thread_unblock(t);
-    intr_enable();
+  intr_disable();
+  if(list_size(&waitingList) > 0) {
+    struct list_elem *head = list_begin(&waitingList);
+    struct thread *t = list_entry(head, struct thread, waitingElem);
+    if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
+      printf("WAKEUPTIME : %lld\n", t->wakeup_time);
+      thread_unblock(t);
+    }
   }
+  intr_enable();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
