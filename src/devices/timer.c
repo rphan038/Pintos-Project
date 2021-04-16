@@ -121,10 +121,10 @@ timer_sleep (int64_t ticks)
   //Safely insert the thread into the waiting list
   sema_down(&lock);
   list_insert_ordered(&waitingList, &currentThread->waitingElem, f, NULL);
-  sema_up(&lock);
-
   //Block the thread
-  thread_block();
+  thread_block(); //WE NEED TO CALL THIS FUNCTION WITH INTERRUPTS
+   
+  sema_up(&lock);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
