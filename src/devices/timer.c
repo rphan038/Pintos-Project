@@ -111,11 +111,6 @@ timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
 
-  //Get the current thread
-  struct thread *currentThread = thread_current();
-
-  //Set the current thread wakeup time
-  currentThread->wakeup_time = start + ticks;
   //printf("TICKS CALC : %lld\n", currentThread->wakeup_time);
 
   ASSERT (intr_get_level () == INTR_ON);
@@ -123,11 +118,16 @@ timer_sleep (int64_t ticks)
   //Safely insert the thread into the waiting list
   //sema_down(&lock);
   //printf("SIZE BEFORE : %d\n", list_size(&waitingList));
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  //Get the current thread
+  struct thread *currentThread = thread_current();
+
+  //Set the current thread wakeup time
+  currentThread->wakeup_time = start + ticks;
   list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
   //printf("SIZE AFTER : %d\n", list_size(&waitingList));
   //Block the thread
-  enum intr_level old_level;
-  old_level = intr_disable ();
   thread_block(); //WE NEED TO CALL THIS FUNCTION WITH INTERRUPTS
   intr_set_level (old_level);
    
@@ -218,9 +218,9 @@ timer_interrupt (struct intr_frame *args UNUSED)
     if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
       // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
       // printf("TICKS : %lld\n", ticks);
-      enum intr_level old_level = intr_disable();
+      //enum intr_level old_level = intr_disable();
       thread_unblock(t);
-      intr_set_level(old_level);
+      //intr_set_level(old_level);
       list_pop_front(&waitingList);
     }
   }
