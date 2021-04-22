@@ -215,6 +215,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if(list_size(&waitingList) > 0) {
     struct list_elem *head = list_min(&waitingList, less_func, NULL);
     struct thread *t = list_entry(head, struct thread, waitingElem);
+    //Use while loop because there can be more than one thread awoken
     if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
       // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
       // printf("TICKS : %lld\n", ticks);

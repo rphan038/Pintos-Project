@@ -37,6 +37,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+static struct list lock_list;
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -92,6 +94,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init(&lock_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -467,6 +470,24 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+}
+
+static void priority_sched() {
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+    struct thread *tmp = list_entry(e, struct thread, elem);
+    if(tmp->status == THREAD_BLOCKED) {
+      if(tmp->priority > t->priority) {
+        struct list_elem *x;
+        for (x = list_begin (&lock_list); x != list_end (&lock_list); x = list_next (x)) {
+          
+        }
+      }
+    } else if(tmp->status == THREAD_READY) {
+
+    }
+  }
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
