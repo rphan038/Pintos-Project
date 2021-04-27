@@ -37,7 +37,14 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
-static struct list lock_list;
+//Create function to compare list elements
+bool less_func(struct list_elem *a, struct list_elem *b, void *aux){
+  struct thread *t1 = list_entry(a, struct thread, waitingElem);
+  struct thread *t2 = list_entry(b, struct thread, waitingElem);
+	if(t1->wakeup_time < t2->wakeup_time)
+    return true;
+  return false;
+}
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -218,8 +225,26 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
+  thread *curr = thread_current();
 
-  thread_current ()->status = THREAD_BLOCKED;
+  curr->status = THREAD_BLOCKED;
+  struct list lockWaitList;
+  //Check to see if this thread has acquired a lock
+  struct list_elem *e;
+  for (e = list_begin (&lock_list); e != list_end (&lock_list); e = list_next (e)) {
+    struct lock *t = list_entry (e, struct lock, locks);
+    if(lock->holder->tid == curr->tid) {
+      lockWaitList = lock->semaphore->waiters;
+      break;
+    }
+  }
+  struct list_elem *e2;
+  for (e2 = list_begin (&lockWaitList); e2 != list_end (&lockWaitList); e2 = list_next (e2)) {
+    struct thread *t = list_entry (e2, struct thread, elem);
+    if(curr->priority > t->priority){
+      //Priority Donate
+    }
+  }
   schedule ();
 }
 
@@ -240,7 +265,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_insert_ordered (&ready_list, &t->elem, compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -311,7 +336,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered (&ready_list, &t->elem, compare_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -471,6 +496,15 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
 }
+
+bool compare_priority(struct list_elem *l1, struct list_elem *l2,void *aux) { 
+  struct thread *t1 = list_entry(l1,struct thread,elem);
+  struct thread *t2 = list_entry(l2,struct thread,elem);
+  if( t1->priority > t2->priority)
+    return true;
+  return false;
+}
+
 
 static void priority_sched() {
   struct thread *t = thread_current();

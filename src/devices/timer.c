@@ -34,7 +34,6 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
-bool less_func(struct list_elem *a, struct list_elem *b, void *aux);
 
 //Create thread waiting list
 struct list waitingList;
@@ -95,13 +94,6 @@ timer_elapsed (int64_t then)
 {
   return timer_ticks () - then;
 }
-
-//Create function to compare list elements
-bool less_func(struct list_elem *a, struct list_elem *b, void *aux){
-	return list_entry(a, struct thread, waitingElem)->wakeup_time < list_entry(b, struct thread, waitingElem)->wakeup_time;
-}
-
-list_less_func *f = &less_func;
 
 
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
@@ -203,6 +195,18 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
+
+void observeList() {
+  struct list_elem *e;
+  int idx = 0;
+  for (e = list_begin (&waitingList); e != list_end (&waitingList); e = list_next (e)){
+      struct thread *t = list_entry (e, struct thread, waitingElem);
+      printf("thread at idx %d with wakup %d\n", idx, t->wakeup_time);
+      idx++;
+    }
+}
+
+bool first = true;
 
 /* Timer interrupt handler. */
 static void
@@ -212,13 +216,22 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
   //printf("SIZE : %d\n", list_size(&waitingList));
   //intr_disable();
+  observeList();
   if(list_size(&waitingList) > 0) {
-    struct list_elem *head = list_min(&waitingList, less_func, NULL);
+    struct list_elem *head = list_head(&waitingList);
+    if(first) {
+      list_pop_front(&waitingList);
+      //list_remove(head);
+      head = list_head(&waitingList);
+      first = false;
+    }
+    //printf("TEST\n");
     struct thread *t = list_entry(head, struct thread, waitingElem);
     //Use while loop because there can be more than one thread awoken
+    printf("WAKEUPTIME : %lld\n", t->wakeup_time);
     if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
-      // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
-      // printf("TICKS : %lld\n", ticks);
+      printf("WAKEUPTIME : %lld\n", t->wakeup_time);
+      printf("TICKS : %lld\n", ticks);
       //enum intr_level old_level = intr_disable();
       thread_unblock(t);
       //intr_set_level(old_level);

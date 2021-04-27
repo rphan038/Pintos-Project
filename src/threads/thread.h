@@ -97,7 +97,7 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    struct list_elem locks;
+    struct list_elem locks;      //List_elem that holds the list of locks
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -112,6 +112,10 @@ struct thread
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+
+static struct list lock_list;
+
+bool less_func(struct list_elem *a, struct list_elem *b, void *aux);
 
 void thread_init (void);
 void thread_start (void);
