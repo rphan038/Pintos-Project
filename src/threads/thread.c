@@ -37,6 +37,8 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+bool compare_priority(struct list_elem *l1, struct list_elem *l2,void *aux);
+
 //Create function to compare list elements
 bool less_func(struct list_elem *a, struct list_elem *b, void *aux){
   struct thread *t1 = list_entry(a, struct thread, waitingElem);
@@ -225,26 +227,26 @@ thread_block (void)
 {
   ASSERT (!intr_context ());
   ASSERT (intr_get_level () == INTR_OFF);
-  thread *curr = thread_current();
+  struct thread *curr = thread_current();
 
   curr->status = THREAD_BLOCKED;
   struct list lockWaitList;
   //Check to see if this thread has acquired a lock
   struct list_elem *e;
   for (e = list_begin (&lock_list); e != list_end (&lock_list); e = list_next (e)) {
-    struct lock *t = list_entry (e, struct lock, locks);
-    if(lock->holder->tid == curr->tid) {
-      lockWaitList = lock->semaphore->waiters;
-      break;
-    }
+    // struct lock *t = list_entry (e, struct lock, locks);
+    // if(lock->holder->tid == curr->tid) {
+    //   lockWaitList = lock->semaphore->waiters;
+    //   break;
+    // }
   }
-  struct list_elem *e2;
-  for (e2 = list_begin (&lockWaitList); e2 != list_end (&lockWaitList); e2 = list_next (e2)) {
-    struct thread *t = list_entry (e2, struct thread, elem);
-    if(curr->priority > t->priority){
-      //Priority Donate
-    }
-  }
+  // struct list_elem *e2;
+  // for (e2 = list_begin (&lockWaitList); e2 != list_end (&lockWaitList); e2 = list_next (e2)) {
+  //   struct thread *t = list_entry (e2, struct thread, elem);
+  //   if(curr->priority > t->priority){
+  //     //Priority Donate
+  //   }
+  // }
   schedule ();
 }
 
@@ -336,7 +338,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_insert_ordered (&ready_list, &t->elem, compare_priority, NULL);
+    list_insert_ordered (&ready_list, &cur->elem, compare_priority, NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);

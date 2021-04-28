@@ -120,7 +120,7 @@ timer_sleep (int64_t ticks)
   list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
   //printf("SIZE AFTER : %d\n", list_size(&waitingList));
   //Block the thread
-  thread_block(); //WE NEED TO CALL THIS FUNCTION WITH INTERRUPTS
+  thread_block();
   intr_set_level (old_level);
    
   //sema_up(&lock);
@@ -195,18 +195,6 @@ timer_print_stats (void)
 {
   printf ("Timer: %"PRId64" ticks\n", timer_ticks ());
 }
-
-void observeList() {
-  struct list_elem *e;
-  int idx = 0;
-  for (e = list_begin (&waitingList); e != list_end (&waitingList); e = list_next (e)){
-      struct thread *t = list_entry (e, struct thread, waitingElem);
-      printf("thread at idx %d with wakup %d\n", idx, t->wakeup_time);
-      idx++;
-    }
-}
-
-bool first = true;
 
 /* Timer interrupt handler. */
 static void
@@ -214,24 +202,15 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-  //printf("SIZE : %d\n", list_size(&waitingList));
-  //intr_disable();
-  observeList();
   if(list_size(&waitingList) > 0) {
-    struct list_elem *head = list_head(&waitingList);
-    if(first) {
-      list_pop_front(&waitingList);
-      //list_remove(head);
-      head = list_head(&waitingList);
-      first = false;
-    }
-    //printf("TEST\n");
+    struct list_elem *head = list_begin(&waitingList);
+    
     struct thread *t = list_entry(head, struct thread, waitingElem);
     //Use while loop because there can be more than one thread awoken
-    printf("WAKEUPTIME : %lld\n", t->wakeup_time);
+    // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
+    // printf("TICKS : %lld\n", ticks);
     if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
-      printf("WAKEUPTIME : %lld\n", t->wakeup_time);
-      printf("TICKS : %lld\n", ticks);
+      //printf("WAKEUPTIME : %lld\n", t->wakeup_time);
       //enum intr_level old_level = intr_disable();
       thread_unblock(t);
       //intr_set_level(old_level);
