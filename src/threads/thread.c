@@ -103,7 +103,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
-  list_init(&lock_list);
+  // struct list *tmp = get_locklist();
+  // list_init(tmp);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -212,9 +213,12 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_yield();
 
   return tid;
 }
+
+tid_t get_tid(struct *t) {return this->tid;}
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -232,14 +236,20 @@ thread_block (void)
   curr->status = THREAD_BLOCKED;
   struct list lockWaitList;
   //Check to see if this thread has acquired a lock
-  struct list_elem *e;
-  for (e = list_begin (&lock_list); e != list_end (&lock_list); e = list_next (e)) {
-    // struct lock *t = list_entry (e, struct lock, locks);
-    // if(lock->holder->tid == curr->tid) {
-    //   lockWaitList = lock->semaphore->waiters;
-    //   break;
-    // }
-  }
+  /*insert threads into ready list on priority order, this allows threads with higher priority to run first
+  locks -> if a lock is already held, check the holding thread's prio with curr thread's prio then donate
+  when necessary
+  */
+  
+  // struct list_elem *e;
+  // struct list *tmp = get_locklist();
+  // for (e = list_begin (tmp); e != list_end (tmp); e = list_next (e)) {
+  //   struct lock *t = list_entry (e, struct lock, lock_elem);
+  //   if(t->holder->tid == curr->tid) {
+  //     lockWaitList = t->semaphore.waiters;
+  //     break;
+  //   }
+  // }
   // struct list_elem *e2;
   // for (e2 = list_begin (&lockWaitList); e2 != list_end (&lockWaitList); e2 = list_next (e2)) {
   //   struct thread *t = list_entry (e2, struct thread, elem);
@@ -263,7 +273,9 @@ thread_unblock (struct thread *t)
 {
   enum intr_level old_level;
 
+  // printf("sleijfals\n");
   ASSERT (is_thread (t));
+  // printf("asesefs\n");
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
@@ -365,7 +377,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  if(thread_current()->prioChanged == 0)
+    thread_current ()->priority = new_priority;
+  thread_current()->prioHolder[thread_current()->prioChanged] = new_priority;
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -492,7 +507,9 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->prioChanged = 0;
   t->magic = THREAD_MAGIC;
+  t->waitingThread = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -507,16 +524,21 @@ bool compare_priority(struct list_elem *l1, struct list_elem *l2,void *aux) {
   return false;
 }
 
+void sortReadyList() {
+  list_sort(&ready_list, compare_priority, NULL);
+}
+
 
 static void priority_sched() {
   struct thread *t = thread_current();
   struct list_elem *e;
+  struct list *tmpLock = get_locklist();
   for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
     struct thread *tmp = list_entry(e, struct thread, elem);
     if(tmp->status == THREAD_BLOCKED) {
       if(tmp->priority > t->priority) {
         struct list_elem *x;
-        for (x = list_begin (&lock_list); x != list_end (&lock_list); x = list_next (x)) {
+        for (x = list_begin (tmpLock); x != list_end (tmpLock); x = list_next (x)) {
           
         }
       }
@@ -635,6 +657,8 @@ allocate_tid (void)
 
   return tid;
 }
+
+struct lock *get_tid_lock() {return &tid_lock;}
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

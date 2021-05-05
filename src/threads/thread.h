@@ -96,8 +96,9 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
-    struct list_elem locks;      //List_elem that holds the list of locks
+    int prioHolder[10];
+    int prioChanged;
+    tid_t waitingThread;      //The thread that this thread is waiting for to release the lock
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -113,9 +114,8 @@ struct thread
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
 
-static struct list lock_list;
-
 bool less_func(struct list_elem *a, struct list_elem *b, void *aux);
+bool compare_priority(struct list_elem *l1, struct list_elem *l2,void *aux);
 
 void thread_init (void);
 void thread_start (void);
