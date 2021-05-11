@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -218,7 +219,7 @@ thread_create (const char *name, int priority,
   return tid;
 }
 
-tid_t get_tid(struct *t) {return this->tid;}
+//tid_t get_tid(struct *t) {return this->tid;}
 
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
@@ -282,6 +283,16 @@ thread_unblock (struct thread *t)
   list_insert_ordered (&ready_list, &t->elem, compare_priority, NULL);
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+struct thread *find_thread(tid_t tTmp) {
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next (e)) {
+    struct thread *t = list_entry (e, struct thread, allelem);
+    if(t->tid == tTmp)
+      return t;    
+  }
+  return NULL;
 }
 
 /* Returns the name of the running thread. */
@@ -379,7 +390,7 @@ thread_set_priority (int new_priority)
 {
   if(thread_current()->prioChanged == 0)
     thread_current ()->priority = new_priority;
-  thread_current()->prioHolder[thread_current()->prioChanged] = new_priority;
+  thread_current()->prioHolder[thread_current()->prioChanged - 1] = new_priority;
   thread_yield();
 }
 
@@ -509,7 +520,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->prioChanged = 0;
   t->magic = THREAD_MAGIC;
-  t->waitingThread = -1;
+  t->lock_waiting = NULL;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

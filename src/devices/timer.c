@@ -102,6 +102,8 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
+  if(ticks < 0)
+    return;
 
   //printf("TICKS CALC : %lld\n", currentThread->wakeup_time);
 
@@ -209,12 +211,14 @@ timer_interrupt (struct intr_frame *args UNUSED)
     //Use while loop because there can be more than one thread awoken
     // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
     // printf("TICKS : %lld\n", ticks);
-    if(ticks >= t->wakeup_time && t->wakeup_time > 0) {
+    while(ticks >= t->wakeup_time && t->wakeup_time > 0) {
       //printf("WAKEUPTIME : %lld\n", t->wakeup_time);
       //enum intr_level old_level = intr_disable();
       thread_unblock(t);
       //intr_set_level(old_level);
       list_pop_front(&waitingList);
+      head = list_begin(&waitingList);
+      t = list_entry(head, struct thread, waitingElem);
     }
   }
   //intr_enable();

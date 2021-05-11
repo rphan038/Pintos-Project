@@ -98,7 +98,7 @@ struct thread
     struct list_elem elem;              /* List element. */
     int prioHolder[10];
     int prioChanged;
-    tid_t waitingThread;      //The thread that this thread is waiting for to release the lock
+    struct lock *lock_waiting;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -147,5 +147,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+struct thread *find_thread(tid_t tTmp);
 
 #endif /* threads/thread.h */

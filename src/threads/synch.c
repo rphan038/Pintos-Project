@@ -200,25 +200,26 @@ lock_acquire (struct lock *lock)
 
   struct thread *curr = thread_current();
   if(lock->holder != NULL) {
+    curr->lock_waiting = lock;
     if(lock->holder->priority < curr->priority) {
-      lock->holder->prioHolder[lock->holder->prioChanged] = lock->holder->priority;
-      lock->holder->priority = curr->priority;
-      curr->waitingThread = lock->holder->get_tid(lock->holder);
-      lock->priority = curr->priority;
-      lock->holder->prioChanged += 1;
-      if(lock->holder->waitingThread != -1)
-      //sortReadyList();
+      while(curr->lock_waiting != NULL){
+        struct lock *tmpLock = curr->lock_waiting;
+        if(curr == thread_current()) {
+          tmpLock->holder->prioHolder[tmpLock->holder->prioChanged] = tmpLock->holder->priority;
+          tmpLock->holder->prioChanged += 1;
+        }
+        tmpLock->holder->priority = curr->priority;
+        tmpLock->priority = curr->priority;
+        if(tmpLock->holder->status == THREAD_READY)
+          break;
+        curr = tmpLock->holder;
+      }
+      sortReadyList();
       lock->donated = true;
     }
   }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
-
-  // printf("TID BEFORE %d\n", lock->holder->tid);
-  // list_push_back(&lock_list, &lock->lock_elem);
-  // struct list_elem *e = list_begin(&lock_list);
-  // struct lock *t = list_entry (e, struct lock, lock_elem);
-  // printf("TID AFTER %d\n", t->holder->tid);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -257,15 +258,12 @@ lock_release (struct lock *lock)
   if(lock->donated && lock->priority >= curr->priority) {
     lock->holder->priority = lock->holder->prioHolder[lock->holder->prioChanged - list_size(&lock->semaphore.waiters)];
     lock->holder->prioHolder[lock->holder->prioChanged - list_size(&lock->semaphore.waiters)] = PRI_DEFAULT;
-    //lock->holder->prioChanged -= 1;
-    //if(lock->holder->prioChanged > 0)
-      lock->donated = false;
+    lock->donated = false;
   } else if(lock->donated && lock->priority < curr->priority) {
     lock->holder->prioChanged -= 1;
   }
   lock->holder = NULL;
-  // list_remove(&lock->lock_elem);
-  // printf("list_size %d\n", list_size(&lock_list));
+  lock->donated = false;
   sema_up (&lock->semaphore);
 }
 
