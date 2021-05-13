@@ -115,11 +115,19 @@ See image titled 'nested_donation_diagram.JPG' for a the nested donation diagram
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+We sort the readyList and semaphore.waiters list to ensure that the correct thread wakes up.
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
+First, the lock is checked to make sure there is a current holder. Then, the priroity of the thread trying to acquire the lock and the holder's priority is compared.
+If the holder's priority is less than the thread looking to acquire the lock, then this thread donates is priority to the holder. Then, it checks to see if the holder
+is waiting on other locks. This process repeats until the thread is no longer waiting.
+
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
+
+Checks to see if the donation occured on the lock and then reverts the holder's priority to one of its previous priorities depending on what kind of thread donation occurred.
 
 ---- SYNCHRONIZATION ----
 
@@ -127,10 +135,19 @@ See image titled 'nested_donation_diagram.JPG' for a the nested donation diagram
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
 
+A potential race condition could occur if a thread A uses this function to change to a lower priority such that another thread B has a higher priority. In this situation,
+thread A should no longer be running because thread B is now the higher priority. thread_yield() is called at the end of this function to ensure that
+the correct thread is being ran so that such a race condition is avoided. A lock cannot be used to avoid this race because a lock would have to be created each 
+time a thread called this function.
+
 ---- RATIONALE ----
 
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+We choose this design because compared to our original design, the scope of savng locks and priorities seems safer. Mainly, in our original design, we were using
+global lists to keep track of certain items; however, if we were getting access errors and incorrect behavior. Our previous implementation was also inefficient because
+we were checking a lot of items at a time. Our current implementation keeps everything local with respect to the thread and lock.
 
 
 			   SURVEY QUESTIONS
