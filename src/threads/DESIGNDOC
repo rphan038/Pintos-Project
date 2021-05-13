@@ -34,26 +34,52 @@ We have no preliminaries.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+Added to struct thread:
+	int64_t wakeup_time; /*The time that the thread should wakeup */
+	struct list_elem waitingElem; /*The element for the waiting list in sleep(). Where waiting threads reside*/
+
+Added to timer.c
+	struct list waitingList; /*A list that holds waiting threads */
+
 ---- ALGORITHMS ----
 
 >> A2: Briefly describe what happens in a call to timer_sleep(),
 >> including the effects of the timer interrupt handler.
 
+timer_sleep() avoids busy waiting now by first disabling interrupts and then getting the current thread, setting its wakeup_time field by adding the inputted ticks parameter
+to the start value, which is determined through a call to timer_ticks(). It then calls list_insert_ordered() to make waitingList, a list that holds waiting threads, a priority
+queue so that the thread that needs to be unblocked first can be accomplished in timer_interrupt(). Finally, thread_block() is called to put the thread in a waiting or sleeping state. Interrupts
+are turned back on.
+
+In timer_interrupt(), the head of the waitingList is examined to see if that thread's wakeup_time is woken up at the correct time. If this is the case, thread_unblock() is called
+and this thread is removed from the waitingList. This functionality occurs while the waitingList's size is greater than 0. This function also takes into account if multiple threads
+should be woken up at the same time through the while loop.
+
 >> A3: What steps are taken to minimize the amount of time spent in
 >> the timer interrupt handler?
+
+Time is only spent in timer_interrupt() if waitingList's size is greater than 0 and if the head of the waitingList's wakeup_time has occurred.
 
 ---- SYNCHRONIZATION ----
 
 >> A4: How are race conditions avoided when multiple threads call
 >> timer_sleep() simultaneously?
 
+timer_sleep() avoids race conditions because line 104 makes sure that interrupts are on before proceeding to the insertion in the waitingList. If interrupts are off,
+then another thread has already called timer_sleep().
+
 >> A5: How are race conditions avoided when a timer interrupt occurs
 >> during a call to timer_sleep()?
+
+Since interrupts are off during timer_sleeps() main functionality, timer_interrupt() cannot be ran.
 
 ---- RATIONALE ----
 
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
+
+We knew we needed some ordering of wakeup times, so some sort of priority queue made the most sense. We intially considered just using an unordered list and then calling
+list_min to retrieve the correct thread; however, this is not an ideal design because it is slower and more cumbersome.
 
 			 PRIORITY SCHEDULING
 			 ===================
@@ -64,9 +90,25 @@ We have no preliminaries.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+Added to struct thread:
+	int prioHolder[10]; /* Stores the priorities that a thread use to have so that a thread can revert back once priority donation is completed */
+	int prioChanged; /* Stores how many times the thread's priority has been changed */
+	struct lock *lock_waiting; /* Stores the lock that the thread is currently waiting for */
+	
+Added to struct lock:
+	bool *donated; /* True if a donation occurred on the lock between threads fighting over the lock */
+	int priority; /* The acquiring thread's original priority */
+
+
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
+
+When a thread tries to acquire a lock that has already been acquired, it checks to see if its priority is greater than the holder's priority. If so, the holder
+adds its current priority to the prioHolder array. Then, it takes the priority of the higher priority thread. When a lock is released, it checks prioHolder and uses the
+prioChanged attribute as well as the number of waiting threads in the respective lock to change its priority to what is at the index.
+
+See image titled 'nested_donation_diagram.JPG' for a the nested donation diagram in THIS directory.
 
 ---- ALGORITHMS ----
 
@@ -103,14 +145,25 @@ the quarter.
 >> In your opinion, was this assignment, or any one of the three problems
 >> in it, too easy or too hard?  Did it take too long or too little time?
 
+This project was a perfect challenge level. There were obstacles to overcome, but there was nothing to hard to figure out with enough time given. We met for 3 weeks
+for 2 hours each week.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
+
+This project definetly aided in our understanding of OS design. It made is very concrete by having to actually implement OS functionality in code.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
 >> find any of our guidance to be misleading?
 
+We do not think that there is an addtional hints needed to for this project. All guidance seemed to be helpful.
+
 >> Do you have any suggestions for the TAs to more effectively assist
 >> students, either for future quarters or the remaining projects?
 
+N/A. Not Applicable.
+
 >> Any other comments?
+
+N/A
