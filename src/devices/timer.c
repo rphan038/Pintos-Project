@@ -20,8 +20,6 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
-struct semaphore lock;
-
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -46,8 +44,6 @@ timer_init (void)
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
   list_init(&waitingList);
-  sema_init(&lock, 1);
-  printf("TESTING\n");
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -105,13 +101,9 @@ timer_sleep (int64_t ticks)
   if(ticks < 0)
     return;
 
-  //printf("TICKS CALC : %lld\n", currentThread->wakeup_time);
-
   ASSERT (intr_get_level () == INTR_ON);
 
   //Safely insert the thread into the waiting list
-  //sema_down(&lock);
-  //printf("SIZE BEFORE : %d\n", list_size(&waitingList));
   enum intr_level old_level;
   old_level = intr_disable ();
   //Get the current thread
@@ -120,12 +112,9 @@ timer_sleep (int64_t ticks)
   //Set the current thread wakeup time
   currentThread->wakeup_time = start + ticks;
   list_insert_ordered(&waitingList, &currentThread->waitingElem, less_func, NULL);
-  //printf("SIZE AFTER : %d\n", list_size(&waitingList));
   //Block the thread
   thread_block();
   intr_set_level (old_level);
-   
-  //sema_up(&lock);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -208,20 +197,13 @@ timer_interrupt (struct intr_frame *args UNUSED)
     struct list_elem *head = list_begin(&waitingList);
     
     struct thread *t = list_entry(head, struct thread, waitingElem);
-    //Use while loop because there can be more than one thread awoken
-    // printf("WAKEUPTIME : %lld\n", t->wakeup_time);
-    // printf("TICKS : %lld\n", ticks);
     while(ticks >= t->wakeup_time && t->wakeup_time > 0) {
-      //printf("WAKEUPTIME : %lld\n", t->wakeup_time);
-      //enum intr_level old_level = intr_disable();
       thread_unblock(t);
-      //intr_set_level(old_level);
       list_pop_front(&waitingList);
       head = list_begin(&waitingList);
       t = list_entry(head, struct thread, waitingElem);
     }
   }
-  //intr_enable();
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
